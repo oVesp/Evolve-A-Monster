@@ -105,6 +105,27 @@ function TrainingSystem:Start(player: Player, monster: Model, trainingName: stri
 		-- >> END: MODIFIED GAIN LOGIC <<
 
 		_G.EFFECTS.PlaySound("Success", {Where = monster.HumanoidRootPart})
+		
+		-- Check for evolution after successful training
+		if _G.EVOLUTION and _G.EVOLUTION.CheckEvolutionTrigger then
+			local owner = monster:GetAttribute("OwnerId")
+			if owner then
+				local ownerPlr = game.Players:GetPlayerByUserId(owner)
+				if ownerPlr then
+					-- Check evolution after training (with 1 second delay)
+					task.delay(1, function()
+						local ok, evoResult = pcall(function()
+							return _G.EVOLUTION.CheckEvolutionTrigger(ownerPlr, "training", {
+								trainingType = trainingName
+							})
+						end)
+						if not ok then
+							warn("[TrainingSystem] Evolution check failed:", evoResult)
+						end
+					end)
+				end
+			end
+		end
 	else
 		_G.EFFECTS.PlaySound("Fail", {Where = monster.HumanoidRootPart})
 	end
