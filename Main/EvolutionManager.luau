@@ -314,6 +314,9 @@ function EvolutionManager.StartEvolution(player: Player, playerData, trigger, op
 end
 
 -- ===== Moves Merge Config =====
+-- Max moves enforced: When a new move is learned and the monster already has 4 moves,
+-- the lowest rarity move (excluding BasicAttack) will be replaced.
+-- Priority order: BasicAttack > Rarity (Primordial > Ascended > Specialist > Advanced > Amateur)
 local MAX_MOVES = 4
 
 local RARITY_ORDER = { Amateur = 1, Advanced = 2, Specialist = 3, Ascended = 4, Primordial = 5 }
@@ -354,11 +357,28 @@ end
 
 local function trimToMax(list, maxCount)
 	if #list <= maxCount then return list end
+	
+	-- Sort priority:
+	-- 1. BasicAttack always kept (highest priority)
+	-- 2. Highest rarity moves kept
+	-- 3. In case of tie, keep newer moves (later in list)
 	table.sort(list, function(a,b)
+		-- BasicAttack always comes first
 		if a.move.id == "BasicAttack" and b.move.id ~= "BasicAttack" then return true end
 		if b.move.id == "BasicAttack" and a.move.id ~= "BasicAttack" then return false end
-		return rarityScore(a) > rarityScore(b)
+		
+		-- Compare by rarity
+		local aScore = rarityScore(a)
+		local bScore = rarityScore(b)
+		if aScore ~= bScore then
+			return aScore > bScore
+		end
+		
+		-- If same rarity, keep the one that appears later (newer)
+		-- We don't have timestamps, so this is best effort
+		return false
 	end)
+	
 	local cut = {}
 	for i=1, maxCount do cut[i] = list[i] end
 	return dedupe(cut)
@@ -415,17 +435,28 @@ function EvolutionManager.CompleteEvolution(player: Player, newRaceName: string,
 
 	
 	
-	local inherited = chooseInherited(playerData.Moves)
+	-- Save previous moves for inheritance
+	local previousMoves = {}
+	for _, e in ipairs(playerData.Moves or {}) do
+		table.insert(previousMoves, e)
+	end
+	
+	-- Get starter moves for new race
 	local startersList = EvoDef:GetMovesForRace(newRaceName, {
 		personality  = playerData.Personality,
-		previousMoves= inherited and {{id=inherited.id, rarity=inherited.rarity}} or {},
+		previousMoves= previousMoves,
 		stats        = playerData.Stats,
 	}) or {}
 
+	-- Resolve move unlocks from evolution trigger (this handles inherited moves)
 	local gained = MoveUnlocks.ResolveUnlocks(playerData, "evolution", {
-		from = oldRace
+		from = oldRace,
+		previousMoves = previousMoves
 	})
 
+	-- Merge moves: previous moves + starters for new race
+	-- The MoveUnlocks.ResolveUnlocks already added unlocked moves to playerData.Moves
+	-- So we just need to merge with starters
 	playerData.Moves = mergeMovesKeepingOld(playerData.Moves, startersList, newRaceName)
 
 	playerData.History = playerData.History or {}

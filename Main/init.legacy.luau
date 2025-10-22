@@ -25,6 +25,10 @@ _G.MONSTERGENERATOR = safeRequire(script.MonsterGenerator)
 _G.COMBAT_ARENA = safeRequire(script.CombatZone)
 _G.TRAINING_SYSTEM = safeRequire(script.TrainingSystem.Main)
 _G.EVOLUTION = safeRequire(script.EvolutionManager)
+if _G.EVOLUTION and _G.EVOLUTION.Init then
+	_G.EVOLUTION.Init()
+	print("[Main] Evolution system initialized")
+end
 _G.SHARED = safeRequire(script.Shared)
 _G.PATHENCOUNTER = safeRequire(script.PathEncounterRunner)
 _G.COMBAT_ZONE = safeRequire(script.CombatZone)
