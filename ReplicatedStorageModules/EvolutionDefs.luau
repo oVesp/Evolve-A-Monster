@@ -128,129 +128,48 @@ local function normalizeEdges(list)
 	return out
 end
 
--- ===== Normalized Evolution Requirements =====
-EvolutionDefs.EvolutionGraph = {
-	-- === Raptor branch ===
-	Raptor = {
-		{ target="Dino", priority=6, gates={ minStats={ Strength=45, Speed=30 } } },
-		{ target="Beast", priority=7, gates={ minWins=4, minStats={ Strength=60, Defense=36 } } },
-		{ target="Dragon", priority=7, gates={ minStats={ Intelligence=54, Skill=42, Speed=42 } } },
-		{ target="Behemoth", priority=5, gates={ minStats={ Defense=54, Hp=110 } } },
-	},
-	Dino = {
-		{ target="Dragon", priority=9, gates={ minWins=8, minStats={ Strength=105, Speed=75, Skill=60 } } },
-		{ target="Behemoth", priority=7, gates={ minStats={ Defense=90, Hp=140 } } },
-		{ target="Beast", priority=6, gates={ minWins=6, minStats={ Strength=84, Skill=54 } } },
-	},
-	Beast = {
-		{ target="Dragon", priority=8, gates={ minWins=12, minStats={ Strength=135, Skill=90, Speed=90 } } },
-		{ target="Behemoth", priority=6, gates={ minStats={ Defense=135, Hp=180 } } },
-		{ target="DreadBeast", priority=8, gates={ maxCareMistakes=999, minStats={ Strength=120 } } },
-	},
-	Dragon = {
-		{ target="NetherDragon", priority=11, gates={ minBond=35, minStats={ Intelligence=150, Skill=96 } } },
-	},
-	Behemoth = {
-		{ target="SkyBehemoth", priority=9, gates={ minStats={ Intelligence=114, Speed=102 } } },
-	},
-
-	-- === Construct / Core branch ===
-	Core = {
-		{ target="Golem", priority=5, gates={ minStats={ Defense=45 } } },
-		{ target="Titan", priority=7, gates={ minWins=5, minStats={ Strength=66, Defense=54 } } },
-		{ target="Colossus", priority=8, gates={ minBond=28, minStats={ Defense=66, Hp=130 } } },
-		{ target="PrimordialConstruct", priority=10, gates={ minStats={ Intelligence=90, Defense=72 } } },
-	},
-	Golem = {
-		{ target="Titan", priority=8, gates={ minWins=8, minStats={ Strength=102, Defense=84 } } },
-		{ target="Colossus", priority=6, gates={ minStats={ Defense=108, Hp=160 } } },
-	},
-	Titan = {
-		{ target="Colossus", priority=5, gates={ minStats={ Defense=132, Hp=200 } } },
-		{ target="SteelBoxer", priority=8, gates={ minWins=12, minStats={ Strength=135, Defense=120, Skill=78 } } },
-	},
-	Colossus = {
-		{ target="IronColoss", priority=11, gates={ minBond=55, maxCareMistakes=2, minStats={ Defense=180, Hp=260 } } },
-	},
-
-	-- === Demonic branch ===
-	Imp = {
-		{ target="Devil", priority=5, gates={ minStats={ Skill=36 } } },
-		{ target="Archdemon", priority=8, gates={ minWins=6, minStats={ Strength=78, Intelligence=54 } } },
-		{ target="AbyssLord", priority=9, gates={ maxCareMistakes=999, minStats={ Strength=72 } } },
-	},
-	Devil = {
-		{ target="Archdemon", priority=7, gates={ minWins=10, minStats={ Strength=102, Skill=72 } } },
-		{ target="AbyssLord", priority=8, gates={ maxCareMistakes=999, minStats={ Strength=90, Defense=72 } } },
-	},
-	Archdemon = {
-		{ target="AbyssLord", priority=9, gates={ minWins=14, minStats={ Strength=132, Intelligence=90 } } },
-	},
-
-	-- === Progenitor / Reality branch ===
-	RealitySeed = {
-		{ target="CosmicWeaver", priority=10, gates={ maxCareMistakes=3, minStats={ Intelligence=3 } } },
-		{ target="VoidWalker", priority=7, gates={ minWins=5, minStats={ Strength=84, Skill=66 } } },
-		{ target="Architect", priority=9, gates={ minBond=30, minStats={ Intelligence=75, Defense=60 } } },
-		{ target="PrimeConcept", priority=12, gates={ minBond=40, minWins=6, minStats={ Intelligence=120, Defense=84 } } },
-	},
-	CosmicWeaver = {
-		{ target="Architect", priority=10, gates={ minBond=25, minStats={ Intelligence=150, Skill=105 } } },
-		{ target="VoidWalker", priority=7, gates={ minWins=10, minStats={ Strength=135, Speed=90 } } },
-		{ target="PrimeConcept", priority=12, gates={ minBond=60, minWins=8, maxCareMistakes=2, minStats={ Intelligence=180, Defense=135 } } },
-	},
-	VoidWalker = {
-		{ target="EntropicVoid", priority=11, gates={ maxCareMistakes=999, minStats={ Strength=165, Intelligence=120 } } },
-	},
-	Architect = {
-		{ target="OrderArchitect", priority=11, gates={ minBond=65, minStats={ Intelligence=186, Skill=120 } } },
-	},
-
-	-- === Boxer / Lagomorph branch ===
-	Hopling = {
-		{ target="Pugilhare", priority=5, gates={ minStats={ Skill=42, Speed=36 } } },
-		{ target="Strikeron", priority=7, gates={ minWins=4, minStats={ Strength=54, Speed=42 } } },
-		{ target="Monarchare", priority=8, gates={ minBond=26, minStats={ Skill=42, Intelligence=36 } } },
-	},
-	Pugilhare = {
-		{ target="Strikeron", priority=8, gates={ minWins=6, minStats={ Strength=78, Skill=66, Speed=60 } } },
-		{ target="Monarchare", priority=8, gates={ minBond=35, minStats={ Skill=72, Speed=60 } } },
-		{ target="SteelBoxer", priority=9, gates={ minWins=10, minStats={ Strength=120, Skill=96, Speed=84 } } },
-	},
-	Strikeron = {
-		{ target="Monarchare", priority=6, gates={ minStats={ Skill=96, Speed=84 } } },
-		{ target="SteelBoxer", priority=9, gates={ minWins=12, minStats={ Strength=126, Skill=102, Speed=90 } } },
-	},
-	Monarchare = {
-		{ target="SteelBoxer", priority=8, gates={ minWins=14, minStats={ Strength=132, Skill=108 } } },
-	},
-}
+-- ===== Evolution Graph is now sourced from Races module =====
+-- This provides unified evolution definitions across the codebase
+-- Use GetCandidates() to access evolution paths
 
 -- ===== API =====
 function EvolutionDefs:GetStage(race)
+	-- Delegate to Races module for single source of truth
+	local ok, Races = pcall(function() return require(game.ReplicatedStorage.Modules.Races) end)
+	if ok and Races and Races.GetStage then
+		return Races:GetStage(race) or self.RaceStage[race] or "Fledgeling"
+	end
 	return self.RaceStage[race] or "Fledgeling"
 end
 
 function EvolutionDefs:GetCandidates(currentRace, ctx)
-	local raw = self.EvolutionGraph[currentRace]
-	if not raw then return {} end
-	local edges = normalizeEdges(raw)
+	-- Use Races module as primary source for evolution data
+	local ok, Races = pcall(function() return require(game.ReplicatedStorage.Modules.Races) end)
+	if not ok or not Races then return {} end
+	
+	local evolutions = Races:GetEvolutions(currentRace)
+	if not evolutions or #evolutions == 0 then return {} end
+	
 	local candidates = {}
-
-	for _, edge in ipairs(edges) do
-		local path = edge.path or "Natural"
-		local defaults = self.DefaultPathMeta[path] or {}
-		local priority = edge.priority or defaults.priority or 0
-
-		local mergedGates
-		if defaults.gates or edge.gates then
-			mergedGates = {}
-			if defaults.gates then for k,v in pairs(defaults.gates) do mergedGates[k]=v end end
-			if edge.gates   then for k,v in pairs(edge.gates)   do mergedGates[k]=v end end
+	for _, evo in ipairs(evolutions) do
+		-- Convert Races format to EvolutionDefs format
+		local priority = 5 -- default priority
+		
+		-- Calculate priority based on requirements
+		if evo.gates then
+			if evo.gates.minBond and evo.gates.minBond >= 50 then priority = priority + 3 end
+			if evo.gates.minWins and evo.gates.minWins >= 10 then priority = priority + 2 end
+			if evo.gates.maxCareMistakes and evo.gates.maxCareMistakes <= 3 then priority = priority + 2 end
 		end
-
-		if meetsGates(ctx or {}, mergedGates) then
-			table.insert(candidates, { target=edge.target, path=path, priority=priority, gates=mergedGates })
+		
+		-- Check if gates are met
+		if meetsGates(ctx or {}, evo.gates) then
+			table.insert(candidates, {
+				target = evo.target,
+				priority = priority,
+				gates = evo.gates,
+				weights = evo.weights
+			})
 		end
 	end
 

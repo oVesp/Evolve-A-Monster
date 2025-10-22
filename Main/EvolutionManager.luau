@@ -179,8 +179,8 @@ end
 
 -- ===== Core API =====
 
--- Decide a evolução com base em Races:GetEvolutions(race)
-function EvolutionManager.TryEvolve(monsterData)
+-- Decide a evolução com base em Races:GetEvolutions(race) com sistema de chance
+function EvolutionManager.TryEvolve(monsterData, trigger, opts)
 	local currentRace = monsterData and monsterData.Race
 	if not currentRace then
 		return false, "No current race on monsterData"
@@ -191,7 +191,10 @@ function EvolutionManager.TryEvolve(monsterData)
 		return false, ("No evolutions available for %s"):format(tostring(currentRace))
 	end
 
+	local currentStage = Races:GetStage(currentRace)
 	local ctx = {
+		race = currentRace,
+		stage = currentStage,
 		stats = monsterData.Stats or {},
 		bond = monsterData.Bond or 0,
 		wins = monsterData.Wins or 0,
@@ -201,28 +204,79 @@ function EvolutionManager.TryEvolve(monsterData)
 		baseRaceFamily = monsterData.BaseRaceFamily,
 		cameFrom = currentRace,
 		history = monsterData.History or {},
+		trigger = trigger or "manual",
+		evoItem = opts and opts.evoItem or nil,
 	}
 
-
+	-- Filter eligible evolutions based on gates
 	local eligible = {}
 	for _, evo in ipairs(options) do
 		if meetsGates(ctx, evo.gates) then
-			table.insert(eligible, evo)
+			-- Calculate evolution chance
+			local chance = EvoDef:GetEvolutionChance(currentRace, ctx, evo)
+			
+			-- Trigger-based multipliers
+			if trigger == "combat" then
+				chance = chance * 1.2 -- 20% bonus for combat trigger
+			elseif trigger == "training" then
+				chance = chance * 1.1 -- 10% bonus for training trigger
+			elseif trigger == "item" and ctx.evoItem then
+				chance = 1.0 -- Evolution items guarantee evolution if requirements met
+			end
+			
+			-- Bonus based on wins
+			if ctx.wins >= 20 then
+				chance = chance * 1.3
+			elseif ctx.wins >= 10 then
+				chance = chance * 1.15
+			end
+			
+			-- Bonus based on bond
+			if ctx.bond >= 70 then
+				chance = chance * 1.2
+			elseif ctx.bond >= 40 then
+				chance = chance * 1.1
+			end
+			
+			-- Cap chance at 0.99 to keep some RNG
+			chance = math.min(0.99, chance)
+			
+			table.insert(eligible, {
+				target = evo.target,
+				chance = chance,
+				gates = evo.gates,
+				weights = evo.weights,
+			})
 		end
 	end
+	
 	if #eligible == 0 then
 		return false, "Evolution requirements not met"
 	end
 
+	-- Sort by chance (highest first)
 	table.sort(eligible, function(a, b)
-		return (a.priority or 0) > (b.priority or 0)
+		return (a.chance or 0) > (b.chance or 0)
 	end)
 
-	return true, eligible[1].target
+	-- Roll for evolution with the best candidate
+	local best = eligible[1]
+	local roll = math.random()
+	
+	if roll <= best.chance then
+		return true, best.target, best.chance
+	else
+		return false, string.format("Evolution roll failed (%.1f%% chance, rolled %.1f%%)", 
+			best.chance * 100, roll * 100)
+	end
 end
 
 -- Inicia o processo de evolução (chamado via Remote ou server)
-function EvolutionManager.StartEvolution(player: Player, playerData)
+-- trigger: "manual", "combat", "training", or "item" (optional, defaults to "manual")
+-- opts: optional table { evoItem = itemId }
+function EvolutionManager.StartEvolution(player: Player, playerData, trigger, opts)
+	trigger = trigger or "manual"
+	opts = opts or {}
 	if not player or not player.UserId then
 		return false, "Invalid player"
 	end
@@ -233,10 +287,14 @@ function EvolutionManager.StartEvolution(player: Player, playerData)
 	end
 
 	-- Decide evolução
-	local ok, targetOrReason = EvolutionManager.TryEvolve(playerData)
+	local ok, targetOrReason, chance = EvolutionManager.TryEvolve(playerData, trigger, opts)
 	if not ok then
 		return false, targetOrReason -- <- AGORA RETORNA MOTIVO
 	end
+
+	-- Log evolution attempt
+	print(string.format("[EvolutionManager] Evolution triggered for %s via %s (%.1f%% chance)", 
+		player.Name, trigger, (chance or 0) * 100))
 
 	-- Pega posição atual p/ o FX e reposicionamento
 	local currentModel = EvolutionManager.FindPlayerMonster(player)
@@ -256,6 +314,9 @@ function EvolutionManager.StartEvolution(player: Player, playerData)
 end
 
 -- ===== Moves Merge Config =====
+-- Max moves enforced: When a new move is learned and the monster already has 4 moves,
+-- the lowest rarity move (excluding BasicAttack) will be replaced.
+-- Priority order: BasicAttack > Rarity (Primordial > Ascended > Specialist > Advanced > Amateur)
 local MAX_MOVES = 4
 
 local RARITY_ORDER = { Amateur = 1, Advanced = 2, Specialist = 3, Ascended = 4, Primordial = 5 }
@@ -296,11 +357,28 @@ end
 
 local function trimToMax(list, maxCount)
 	if #list <= maxCount then return list end
+	
+	-- Sort priority:
+	-- 1. BasicAttack always kept (highest priority)
+	-- 2. Highest rarity moves kept
+	-- 3. In case of tie, keep newer moves (later in list)
 	table.sort(list, function(a,b)
+		-- BasicAttack always comes first
 		if a.move.id == "BasicAttack" and b.move.id ~= "BasicAttack" then return true end
 		if b.move.id == "BasicAttack" and a.move.id ~= "BasicAttack" then return false end
-		return rarityScore(a) > rarityScore(b)
+		
+		-- Compare by rarity
+		local aScore = rarityScore(a)
+		local bScore = rarityScore(b)
+		if aScore ~= bScore then
+			return aScore > bScore
+		end
+		
+		-- If same rarity, keep the one that appears later (newer)
+		-- We don't have timestamps, so this is best effort
+		return false
 	end)
+	
 	local cut = {}
 	for i=1, maxCount do cut[i] = list[i] end
 	return dedupe(cut)
@@ -357,17 +435,28 @@ function EvolutionManager.CompleteEvolution(player: Player, newRaceName: string,
 
 	
 	
-	local inherited = chooseInherited(playerData.Moves)
+	-- Save previous moves for inheritance
+	local previousMoves = {}
+	for _, e in ipairs(playerData.Moves or {}) do
+		table.insert(previousMoves, e)
+	end
+	
+	-- Get starter moves for new race
 	local startersList = EvoDef:GetMovesForRace(newRaceName, {
 		personality  = playerData.Personality,
-		previousMoves= inherited and {{id=inherited.id, rarity=inherited.rarity}} or {},
+		previousMoves= previousMoves,
 		stats        = playerData.Stats,
 	}) or {}
 
+	-- Resolve move unlocks from evolution trigger (this handles inherited moves)
 	local gained = MoveUnlocks.ResolveUnlocks(playerData, "evolution", {
-		from = oldRace
+		from = oldRace,
+		previousMoves = previousMoves
 	})
 
+	-- Merge moves: previous moves + starters for new race
+	-- The MoveUnlocks.ResolveUnlocks already added unlocked moves to playerData.Moves
+	-- So we just need to merge with starters
 	playerData.Moves = mergeMovesKeepingOld(playerData.Moves, startersList, newRaceName)
 
 	playerData.History = playerData.History or {}
@@ -422,6 +511,35 @@ function EvolutionManager.CompleteEvolution(player: Player, newRaceName: string,
 	EvolutionComplete:FireClient(player, newRaceName)
 end
 
+-- ===== Evolution Check After Triggers =====
+
+-- Check for evolution after a trigger event (combat/training)
+-- Automatically attempts evolution if requirements are close to being met
+function EvolutionManager.CheckEvolutionTrigger(player: Player, trigger: string, opts)
+	if not player or not player.UserId then return false end
+	
+	local playerData = _G.DATA and _G.DATA:Get(player.UserId)
+	if not playerData then return false end
+	
+	-- Check if evolution is possible
+	local currentRace = playerData.Race
+	local options = Races:GetEvolutions(currentRace)
+	if not options or #options == 0 then return false end
+	
+	-- Try to evolve with the trigger
+	local ok, result = EvolutionManager.StartEvolution(player, playerData, trigger, opts)
+	if ok then
+		print(string.format("[EvolutionManager] Auto-evolution successful for %s after %s", 
+			player.Name, trigger))
+		return true, result
+	else
+		-- Log why evolution didn't happen (helpful for debugging)
+		print(string.format("[EvolutionManager] Evolution check for %s after %s: %s", 
+			player.Name, trigger, tostring(result)))
+		return false, result
+	end
+end
+
 -- ===== Inicialização e binding de Remotes =====
 
 function EvolutionManager.Init()
@@ -434,6 +552,10 @@ function EvolutionManager.Init()
 		-- The handler in Shared.luau now calls this directly.
 		-- No need to bind here again.
 	end)
+	
+	-- Export to global for easy access from other systems
+	_G.EVOLUTION = EvolutionManager
+	print("[EvolutionManager] Initialized and registered to _G.EVOLUTION")
 end
 
 return EvolutionManager
